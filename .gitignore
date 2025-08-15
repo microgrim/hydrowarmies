@@ -3,6 +3,8 @@
 .RData
 .Rproj.user/
 *.Rproj.user
+*.Rproj
+WARP.md
 
 # Large data files
 *.rds
@@ -19,3 +21,12 @@ Thumbs.db
 # Large compressed files (add these manually if needed)
 # *.gz
 
+# Haven't cleaned these yet:
+/data
+/figures
+/output
+00_process*.R
+00_qc*.R
+0[1-9]_*.R
+10_*.R
+Axial_coa_collated_mtg_df.tsv.gz
