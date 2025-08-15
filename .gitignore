@@ -1,0 +1,21 @@
+# R files
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj.user
+
+# Large data files
+*.rds
+*.RDS
+
+# Temporary files
+temp_*
+*_temp*
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Large compressed files (add these manually if needed)
+# *.gz
+
