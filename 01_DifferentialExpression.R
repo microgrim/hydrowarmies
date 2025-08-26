@@ -68,9 +68,6 @@ if(file.exists(paste0(getwd(), "/", "00_custom_functions.R"))){
 } 
 
 
-no_progress <- function() {} #your placeholder function for progress reporting
-
-coalesce2 <- function(x, y, sep = ".") ifelse(x == y, coalesce(x, y, sep = sep), paste0(x, "_vs_", y))
 
 F_counts_combiner <- function(x){
   p <- progressr::progressor(along = x)

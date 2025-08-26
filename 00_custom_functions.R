@@ -150,3 +150,11 @@ g_legend <- function(a.gplot){
   return(legend)
 }
 
+
+
+
+# Custom coalesce ---------------------------------------------------------
+
+
+coalesce2 <- function(x, y, sep = ".") ifelse(x == y, coalesce(x, y, sep = sep), paste0(x, "_vs_", y))
+
