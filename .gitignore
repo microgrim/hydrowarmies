@@ -27,6 +27,6 @@ Thumbs.db
 /output
 00_process*.R
 00_qc*.R
-0[1-8]_*.R
+0[3-8]_*.R
 10_*.R
 Axial_coa_collated_mtg_df.tsv.gz

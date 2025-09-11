@@ -1,3 +1,5 @@
+# 09_ActiveMAG_Expression.R
+
 # 09_active_mag_expression.R
 # this script follows:
 # 00_process_coa_mtgs.R
@@ -14,8 +16,6 @@
 
 #this script plots the expression of highly-active, high-quality MAG bins
 
-
-
 # Resource allocation time ------------------------------------------------
 
 if(file.exists(paste0(getwd(), "/", "00_resource_allocation.R"))){
@@ -30,7 +30,6 @@ if(file.exists(paste0(getwd(), "/", "00_resource_allocation.R"))){
 } else {
   cat("You have to manually load these packages and set paths.")
   # #packages needed for this script:
-  
   library(tidyverse)
   library(data.table)
   library(viridis)
@@ -47,7 +46,6 @@ if(file.exists(paste0(getwd(), "/", "00_resource_allocation.R"))){
   library(dendextend)
   # library(ggpmisc)
   library(ggplotify)
-  
   # 
   # 
 }
@@ -72,80 +70,30 @@ if(file.exists(paste0(getwd(), "/", "00_custom_functions.R"))){
   cat("Loading custom functions.")
   source(paste0(getwd(), "/", "00_custom_functions.R"), local = FALSE,
          echo = FALSE, verbose = getOption("verbose"), prompt.echo = getOption("prompt"))
+}
+
+# Global labellers/renamers -----------------------------------------------
+
+
+if(file.exists(paste0(getwd(), "/", "00_global_labellers.R"))){
+  cat("Loading project-wide labellers and lookups.")
+  source(paste0(getwd(), "/", "00_global_labellers.R"), local = FALSE,
+         echo = FALSE, verbose = getOption("verbose"), prompt.echo = getOption("prompt"))
 } 
+
+
 
 # Import sample metadata --------------------------------------------------
 
-vents <- c("marker113", "anemone", "marker33")
-set.alpha <- 0.05
-vent_lookup <- c("marker113" = "Marker 113",
-                 "anemone" = "Anemone",
-                 "marker33" = "Marker 33")
-sample_metadata <- readr::read_delim(paste0(projectpath, "/data/", "sample_metadata.tsv"),
-                                     col_names = TRUE,
-                                     show_col_types = FALSE,
-                                     quote = "",
-                                     comment = "#",
-                                     delim = "\t",
-                                     num_threads = nthreads) %>%
-  dplyr::mutate(Temperature = ifelse(is.na(Temperature), "00", Temperature),
-                Fraction = ifelse(is.na(Fraction), "W", Fraction)) %>%
-  dplyr::mutate(across(everything(), ~as.factor(.x))) %>%
-  tidyr::drop_na(Vent) %>%
-  dplyr::mutate(Temperature = fct_relevel(Temperature, "00"),
-                Fraction = fct_relevel(Fraction, "W"),
-                Vent = fct_relevel(Vent, "anemone"),
-                Timepoint = fct_relevel(Timepoint, "None"),
-                Type = fct_relevel(Type, "Untreated")) %>%
-  dplyr::mutate(Vent = gsub("_", "", Vent)) %>%
-  dplyr::mutate(Vent = factor(Vent, levels = names(vent_lookup))) %>%
-  dplyr::mutate(vent.1 = dplyr::case_match(Vent,
-                                           "anemone" ~ "N",
-                                           "marker113" ~ "O",
-                                           "marker33" ~ "T")) %>%
-  dplyr::mutate(temp.2 = dplyr::case_match(Temperature, 
-                                           "00" ~ "0",
-                                           "30" ~ "1",
-                                           "55" ~ "2",
-                                           "80" ~ "3")) %>%
-  dplyr::mutate(frac.3 = dplyr::case_match(Fraction,
-                                           "W" ~ "W",
-                                           "12L" ~ "A",
-                                           "13H" ~ "B",
-                                           "12H" ~ "C",
-                                           "13L" ~ "D")) %>%
-  dplyr::mutate(time.4 = dplyr::case_match(Timepoint,
-                                           "None" ~ "0",
-                                           "TP1" ~ "1",
-                                           "TP2" ~ "2")) %>%
-  dplyr::mutate(year.5 = dplyr::case_match(year,
-                                           "2013" ~ "3",
-                                           "2014" ~ "4")) %>%
-  dplyr::mutate(vent.1 = fct_relevel(vent.1, "N"),
-                temp.2 = fct_relevel(temp.2, "0"),
-                frac.3 = fct_relevel(frac.3, "W"),
-                time.4 = fct_relevel(time.4, "0"),
-                year.5 = fct_relevel(year.5, "3")) %>%
-  dplyr::mutate(temp_fraction = interaction(Temperature, frac.3)) %>%
-  droplevels %>%
-  dplyr::mutate(temp_fraction = factor(temp_fraction, 
-                                       levels = levels(.$temp_fraction),
-                                       labels = c(LETTERS[1:length(levels(.$temp_fraction))]))) %>%
-  droplevels %>%
-  dplyr::mutate(vent_temp_fraction = paste0(vent.1, temp_fraction) %>%
-                  factor(.)) %>%
-  dplyr::mutate(vent_year_temp_fraction = paste0(vent.1, year.5, temp_fraction) %>%
-                  factor(.)) %>%
-  dplyr::mutate(temp_fraction_timepoint = interaction(temp_fraction, time.4, sep = "")) %>%
-  droplevels %>%
-  dplyr::mutate(vent_temp_fraction_timepoint = paste0(vent.1, temp_fraction_timepoint) %>%
-                  factor(.)) %>%
-  dplyr::mutate(vent_year_temp_fraction_timepoint = paste0(vent.1, year.5, temp_fraction_timepoint) %>%
-                  factor(.)) %>%
-  dplyr::mutate(sample_name = dplyr::case_when(grepl("12L10|13H7", sample_name) ~ stringr::str_remove_all(sample_name, "(10|7)"),
-                                               .default = sample_name)) %>%
-  droplevels %>%
-  dplyr::mutate(across(everything(), ~as.factor(.x)))
+if(!exists("sample_metadata", envir = .GlobalEnv)){
+  if(file.exists(paste0(projectpath, "/data/processed/", "sample_metadata.rds"))){
+    cli::cli_alert_info("Reading in sample metadata object.")
+    sample_metadata <- readr::read_rds(paste0(projectpath, "/data/processed/", "sample_metadata.rds"))
+  } else {
+    cli::cli_abort("Sample metadata has not been processed in step 1.")  
+  }
+}
+
 
 
 metadata <- sample_metadata %>%

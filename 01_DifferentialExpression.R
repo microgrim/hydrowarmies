@@ -210,76 +210,91 @@ F_deseq_frac <- function(counts, mdata, mdata_filter, deseq_design, prefix,
   assign(paste0(prefix, "_deseq_list"), temp_list, envir = .GlobalEnv)
 }
 
-# Lookup vectors ----------------------------------------------------------
+# Global labellers/renamers -----------------------------------------------
 
-vents <- c("anemone", "marker113", "marker33")
-set.alpha <- 0.05
 
+if(file.exists(paste0(getwd(), "/", "00_global_labellers.R"))){
+  cat("Loading project-wide labellers and lookups.")
+  source(paste0(getwd(), "/", "00_global_labellers.R"), local = FALSE,
+         echo = FALSE, verbose = getOption("verbose"), prompt.echo = getOption("prompt"))
+} 
 
 # Import sample metadata --------------------------------------------------
 
-sample_metadata <- readr::read_delim(paste0(projectpath, "/data/", "sample_metadata.tsv"),
-                                     col_names = TRUE,
-                                     show_col_types = FALSE,
-                                     quote = "",
-                                     comment = "#",
-                                     delim = "\t",
-                                     num_threads = nthreads) %>%
-  dplyr::mutate(Temperature = ifelse(is.na(Temperature), "00", Temperature),
-                Fraction = ifelse(is.na(Fraction), "W", Fraction)) %>%
-  dplyr::mutate(across(everything(), ~as.factor(.x))) %>%
-  tidyr::drop_na(Vent) %>%
-  dplyr::mutate(Temperature = fct_relevel(Temperature, "00"),
-                Fraction = fct_relevel(Fraction, "W"),
-                Vent = fct_relevel(Vent, "anemone"),
-                Timepoint = fct_relevel(Timepoint, "None"),
-                Type = fct_relevel(Type, "Untreated")) %>%
-  dplyr::mutate(Vent = gsub("_", "", Vent)) %>%
-  dplyr::mutate(vent.1 = dplyr::case_match(Vent,
-                                           "anemone" ~ "N",
-                                           "marker113" ~ "O",
-                                           "marker33" ~ "T")) %>%
-  dplyr::mutate(temp.2 = dplyr::case_match(Temperature, 
-                                           "00" ~ "0",
-                                           "30" ~ "1",
-                                           "55" ~ "2",
-                                           "80" ~ "3")) %>%
-  dplyr::mutate(frac.3 = dplyr::case_match(Fraction,
-                                           "W" ~ "W",
-                                           "12L" ~ "A",
-                                           "13H" ~ "B",
-                                           "12H" ~ "C",
-                                           "13L" ~ "D")) %>%
-  dplyr::mutate(time.4 = dplyr::case_match(Timepoint,
-                                           "None" ~ "0",
-                                           "TP1" ~ "1",
-                                           "TP2" ~ "2")) %>%
-  dplyr::mutate(year.5 = dplyr::case_match(year,
-                                           "2013" ~ "3",
-                                           "2014" ~ "4")) %>%
-  dplyr::mutate(vent.1 = fct_relevel(vent.1, "N"),
-                temp.2 = fct_relevel(temp.2, "0"),
-                frac.3 = fct_relevel(frac.3, "W"),
-                time.4 = fct_relevel(time.4, "0"),
-                year.5 = fct_relevel(year.5, "3")) %>%
-  dplyr::mutate(temp_fraction = interaction(Temperature, frac.3)) %>%
-  droplevels %>%
-  dplyr::mutate(temp_fraction = factor(temp_fraction, 
-                                       levels = levels(.$temp_fraction),
-                                       labels = c(LETTERS[1:length(levels(.$temp_fraction))]))) %>%
-  droplevels %>%
-  dplyr::mutate(vent_temp_fraction = paste0(vent.1, temp_fraction) %>%
-                  factor(.)) %>%
-  dplyr::mutate(vent_year_temp_fraction = paste0(vent.1, year.5, temp_fraction) %>%
-                  factor(.)) %>%
-  dplyr::mutate(temp_fraction_timepoint = interaction(temp_fraction, time.4, sep = "")) %>%
-  droplevels %>%
-  dplyr::mutate(vent_temp_fraction_timepoint = paste0(vent.1, temp_fraction_timepoint) %>%
-                  factor(.)) %>%
-  dplyr::mutate(vent_year_temp_fraction_timepoint = paste0(vent.1, year.5, temp_fraction_timepoint) %>%
-                  factor(.)) %>%
-  droplevels %>%
-  dplyr::mutate(across(everything(), ~as.factor(.x)))
+if(file.exists(paste0(projectpath, "/data/processed/", "sample_metadata.rds"))){
+  sample_metadata <- readr::read_rds(paste0(projectpath, "/data/processed/", "sample_metadata.rds"))
+} else {
+  sample_metadata <- readr::read_delim(paste0(projectpath, "/data/reference/", "sample_metadata.tsv"),
+                                       col_names = TRUE,
+                                       show_col_types = FALSE,
+                                       quote = "",
+                                       comment = "#",
+                                       delim = "\t",
+                                       num_threads = nthreads) %>%
+    dplyr::mutate(Temperature = ifelse(is.na(Temperature), "00", Temperature),
+                  Fraction = ifelse(is.na(Fraction), "W", Fraction)) %>%
+    dplyr::mutate(across(everything(), ~as.factor(.x))) %>%
+    tidyr::drop_na(Vent) %>%
+    dplyr::mutate(Temperature = fct_relevel(Temperature, "00"),
+                  Fraction = fct_relevel(Fraction, "W"),
+                  Vent = fct_relevel(Vent, "anemone"),
+                  Timepoint = fct_relevel(Timepoint, "None"),
+                  Type = fct_relevel(Type, "Untreated")) %>%
+    dplyr::mutate(Vent = gsub("_", "", Vent)) %>%
+    dplyr::mutate(Vent = factor(Vent, levels = names(vent_lookup))) %>%
+    dplyr::mutate(vent.1 = dplyr::case_match(Vent,
+                                             "anemone" ~ "N",
+                                             "marker113" ~ "O",
+                                             "marker33" ~ "T")) %>%
+    dplyr::mutate(temp.2 = dplyr::case_match(Temperature, 
+                                             "00" ~ "0",
+                                             "30" ~ "1",
+                                             "55" ~ "2",
+                                             "80" ~ "3")) %>%
+    dplyr::mutate(frac.3 = dplyr::case_match(Fraction,
+                                             "W" ~ "W",
+                                             "12L" ~ "A",
+                                             "13H" ~ "B",
+                                             "12H" ~ "C",
+                                             "13L" ~ "D")) %>%
+    dplyr::mutate(time.4 = dplyr::case_match(Timepoint,
+                                             "None" ~ "0",
+                                             "TP1" ~ "1",
+                                             "TP2" ~ "2")) %>%
+    dplyr::mutate(year.5 = dplyr::case_match(year,
+                                             "2013" ~ "3",
+                                             "2014" ~ "4")) %>%
+    dplyr::mutate(vent.1 = fct_relevel(vent.1, "N"),
+                  temp.2 = fct_relevel(temp.2, "0"),
+                  frac.3 = fct_relevel(frac.3, "W"),
+                  time.4 = fct_relevel(time.4, "0"),
+                  year.5 = fct_relevel(year.5, "3")) %>%
+    dplyr::mutate(temp_fraction = interaction(Temperature, frac.3)) %>%
+    droplevels %>%
+    dplyr::mutate(temp_fraction = factor(temp_fraction, 
+                                         levels = levels(.$temp_fraction),
+                                         labels = c(LETTERS[1:length(levels(.$temp_fraction))]))) %>%
+    droplevels %>%
+    dplyr::mutate(vent_temp_fraction = paste0(vent.1, temp_fraction) %>%
+                    factor(.)) %>%
+    dplyr::mutate(vent_year_temp_fraction = paste0(vent.1, year.5, temp_fraction) %>%
+                    factor(.)) %>%
+    dplyr::mutate(temp_fraction_timepoint = interaction(temp_fraction, time.4, sep = "")) %>%
+    droplevels %>%
+    dplyr::mutate(vent_temp_fraction_timepoint = paste0(vent.1, temp_fraction_timepoint) %>%
+                    factor(.)) %>%
+    dplyr::mutate(vent_year_temp_fraction_timepoint = paste0(vent.1, year.5, temp_fraction_timepoint) %>%
+                    factor(.)) %>%
+    droplevels %>%
+    dplyr::mutate(sample_name = dplyr::case_when(grepl("12L10|13H7", sample_name) ~ stringr::str_remove_all(sample_name, "(10|7)"),
+                                                 .default = sample_name)) %>%
+    dplyr::mutate(across(everything(), ~as.factor(.x)))
+  
+  
+  readr::write_rds(sample_metadata, paste0(projectpath, "/data/processed/", "sample_metadata.rds"))
+}
+
+
 
 # Import counts matrices --------------------------------------------------
 
@@ -288,10 +303,10 @@ to_import_txi <- NULL
 to_find_txi <- NULL
 
 if(!exists("coa_counts_combined", envir = .GlobalEnv)){
-  if(file.exists(paste0(projectpath, "/data/", "coa_counts_combined", ".rds"))){
+  if(file.exists(paste0(projectpath, "/data/processed/", "coa_counts_combined", ".rds"))){
     cli::cli_alert_info("Reading in the combined counts table...")
     progressr::with_progress({
-      coa_counts_combined <- readr::read_rds(file = paste0(projectpath, "/data/", "coa_counts_combined", ".rds"))
+      coa_counts_combined <- readr::read_rds(file = paste0(projectpath, "/data/processed/", "coa_counts_combined", ".rds"))
     })
   } else {
     cli::cli_alert_info("Processing the counts tables and combining them...")
@@ -306,9 +321,9 @@ if(!exists("coa_counts_combined", envir = .GlobalEnv)){
       txi_df <- to_combine[i]
       Sys.sleep(1/100)
       while(!exists(txi_df, inherits = TRUE)){
-        if(file.exists(paste0(projectpath, "/data/", txi_df, ".rds"))){
+        if(file.exists(paste0(projectpath, "/data/raw/", txi_df, ".rds"))){
           progressr::with_progress({
-            temp_df <- readr::read_rds(file = paste0(projectpath, "/data/", txi_df, ".rds"))
+            temp_df <- readr::read_rds(file = paste0(projectpath, "/data/raw/", txi_df, ".rds"))
             assign(txi_df, temp_df, envir = .GlobalEnv)
           })
         } else {
@@ -336,7 +351,7 @@ if(!exists("coa_counts_combined", envir = .GlobalEnv)){
     
     coa_counts_combined <- F_counts_combiner(to_combine) %>%
       dplyr::mutate(across(everything(), ~tidyr::replace_na(.x, replace = 0)))
-    readr::write_rds(coa_counts_combined, file = paste0(projectpath, "/data/", "coa_counts_combined", ".rds"))
+    readr::write_rds(coa_counts_combined, file = paste0(projectpath, "/data/processed/", "coa_counts_combined", ".rds"))
   }
   if(length(to_find_txi) > 1){
     cli::cli_alert_danger("You are missing datasets to import: {.val {to_find_txi}}.", wrap = TRUE)
@@ -379,7 +394,7 @@ for(i in c("axial_temp_13H", "axial_30_13H", "axial_55_13H", "axial_80_13H",
            "axial_30_13H_vent_year", "axial_55_13H_vent_year", "axial_80_13H_vent_year"
            )){
   namevar <- paste0("coa_", i)
-  if(!file.exists(paste0(projectpath, "/data/", namevar, "_deseq_list", ".rds"))){
+  if(!file.exists(paste0(projectpath, "/intermediate/deseq/", namevar, "_deseq_list", ".rds"))){
     cli::cli_alert_info("DESeq model object does not exist with this name: {namevar}. Please process through DESeq.")
     if(exists("to_process_deseq", envir = .GlobalEnv)){
       to_process_deseq <- c(to_process_deseq, namevar)
@@ -387,7 +402,7 @@ for(i in c("axial_temp_13H", "axial_30_13H", "axial_55_13H", "axial_80_13H",
       to_process_deseq <- c(namevar)
     }
   } 
-    if(!file.exists(paste0(projectpath, "/data/", namevar, "_res_list", ".rds"))){
+    if(!file.exists(paste0(projectpath, "/intermediate/deseq/", namevar, "_res_list", ".rds"))){
       cli::cli_alert_info("DESeq results list does not exist with this name: {namevar}. Please process through DESeq.")
       if(exists("to_process_results", envir = .GlobalEnv)){
         to_process_results <- c(to_process_results, namevar)
@@ -437,7 +452,7 @@ if(!is.null(to_process_deseq)){
                  # prefix = deseq_name)
                  prefix = "temp")
     assign(paste0(deseq_name, "_deseq_list"), temp_deseq_list, envir = .GlobalEnv)
-    readr::write_rds(temp_deseq_list, file = paste0(projectpath, "/data/", deseq_name, "_deseq_list", ".rds"))
+    readr::write_rds(temp_deseq_list, file = paste0(projectpath, "/intermediate/deseq/", deseq_name, "_deseq_list", ".rds"))
     rm(temp_deseq_list)
   }
   #one by one:
@@ -669,7 +684,7 @@ if(!is.null(to_process_results)){
         }
         
         assign(paste0(prefix, "_res_list"), res, envir = .GlobalEnv, inherits = TRUE)
-        readr::write_rds(coa_axial_temp_bothfrac_res_list, file = paste0(projectpath, "/data/", "coa_axial_temp_bothfrac_res_list", ".rds"))
+        readr::write_rds(coa_axial_temp_bothfrac_res_list, file = paste0(projectpath, "/intermediate/deseq/", "coa_axial_temp_bothfrac_res_list", ".rds"))
         to_process_results <- grep(prefix, to_process_results, invert = TRUE, value = TRUE)
         rm(prefix)
         
@@ -759,7 +774,7 @@ if(!is.null(to_process_results)){
             rm(res1)}
         }
         assign(paste0(prefix, "_res_list"), res, envir = .GlobalEnv, inherits = TRUE)
-        readr::write_rds(res, file = paste0(projectpath, "/data/", prefix, "_res_list", ".rds"))
+        readr::write_rds(res, file = paste0(projectpath, "/intermediate/deseq/", prefix, "_res_list", ".rds"))
         to_process_results <- grep(prefix, to_process_results, invert = TRUE, value = TRUE)
         rm(prefix)
       }
@@ -849,7 +864,7 @@ if(!is.null(to_process_results)){
             rm(res1)}
         }
         assign(paste0(prefix, "_res_list"), res, envir = .GlobalEnv, inherits = TRUE)
-        readr::write_rds(res, file = paste0(projectpath, "/data/", prefix, "_res_list", ".rds"))
+        readr::write_rds(res, file = paste0(projectpath, "/intermediate/deseq/", prefix, "_res_list", ".rds"))
         to_process_results <- grep(prefix, to_process_results, invert = TRUE, value = TRUE)
         rm(prefix)
         
@@ -976,7 +991,7 @@ if(!is.null(to_process_results)){
             droplevels
         }
         assign(paste0(prefix, "_res_list"), res, envir = .GlobalEnv, inherits = TRUE)
-        readr::write_rds(res, file = paste0(projectpath, "/data/", prefix, "_res_list", ".rds"))
+        readr::write_rds(res, file = paste0(projectpath, "/intermediate/deseq/", prefix, "_res_list", ".rds"))
         to_process_results <- grep(prefix, to_process_results, invert = TRUE, value = TRUE)
         rm(prefix)
         
@@ -1066,7 +1081,7 @@ if(!is.null(to_process_results)){
             rm(res1)}
         }
         assign(paste0(prefix, "_res_list"), res, envir = .GlobalEnv, inherits = TRUE)
-        readr::write_rds(res, file = paste0(projectpath, "/data/", prefix, "_res_list", ".rds"))
+        readr::write_rds(res, file = paste0(projectpath, "/intermediate/deseq/", prefix, "_res_list", ".rds"))
         to_process_results <- grep(prefix, to_process_results, invert = TRUE, value = TRUE)
         rm(prefix)
       }
@@ -1274,34 +1289,34 @@ if(!is.null(to_process_results)){
 }
 
 
-if(!file.exists(paste0(projectpath, "/data/", "coa_axial_eachtemp_bothfrac_res_list", ".rds"))){
+if(!file.exists(paste0(projectpath, "/intermediate/deseq/", "coa_axial_eachtemp_bothfrac_res_list", ".rds"))){
   if(length(apropos(".*_\\d\\d_bothfrac_res_list", mode = "any") == 3)){
     coa_axial_eachtemp_bothfrac_res_list <- bind_rows(coa_axial_30_bothfrac_res_list,
                                                       coa_axial_55_bothfrac_res_list,
                                                       coa_axial_80_bothfrac_res_list)
-    readr::write_rds(coa_axial_eachtemp_bothfrac_res_list, file = paste0(projectpath, "/data/", "coa_axial_eachtemp_bothfrac_res_list", ".rds"))
+    readr::write_rds(coa_axial_eachtemp_bothfrac_res_list, file = paste0(projectpath, "/intermediate/deseq/", "coa_axial_eachtemp_bothfrac_res_list", ".rds"))
   } else {
     cli::cli_alert_warning("Please parse the temperature-specific comparisons for 13H+12L.")
   }
 }
 
-if(!file.exists(paste0(projectpath, "/data/", "coa_axial_eachtemp_13H_res_list", ".rds"))){
+if(!file.exists(paste0(projectpath, "/intermediate/deseq/", "coa_axial_eachtemp_13H_res_list", ".rds"))){
   if(length(apropos(".*_\\d\\d_13H_res_list", mode = "any")) == 3){
     coa_axial_eachtemp_13H_res_list <- bind_rows(coa_axial_30_13H_res_list,
                                                  coa_axial_55_13H_res_list,
                                                  coa_axial_80_13H_res_list)
-    readr::write_rds(coa_axial_eachtemp_13H_res_list, file = paste0(projectpath, "/data/", "coa_axial_eachtemp_13H_res_list", ".rds"))
+    readr::write_rds(coa_axial_eachtemp_13H_res_list, file = paste0(projectpath, "/intermediate/deseq/", "coa_axial_eachtemp_13H_res_list", ".rds"))
   } else {
     cli::cli_alert_warning("Please parse the temperature-specific 13H results and make a new data object.")
   }
 } 
 
-if(!file.exists(paste0(projectpath, "/data/", "coa_axial_eachtemp_13H_vent_year_res_list", ".rds"))){
+if(!file.exists(paste0(projectpath, "/intermediate/deseq/", "coa_axial_eachtemp_13H_vent_year_res_list", ".rds"))){
   if(length(apropos(".*_\\d\\d_13H_vent_year_res_list", mode = "any")) == 3){
     coa_axial_eachtemp_13H_vent_year_res_list <- bind_rows(coa_axial_30_13H_vent_year_res_list,
                                                            coa_axial_55_13H_vent_year_res_list,
                                                            coa_axial_80_13H_vent_year_res_list)
-    readr::write_rds(coa_axial_eachtemp_13H_vent_year_res_list, file = paste0(projectpath, "/data/", "coa_axial_eachtemp_13H_vent_year_res_list", ".rds"))
+    readr::write_rds(coa_axial_eachtemp_13H_vent_year_res_list, file = paste0(projectpath, "/intermediate/deseq/", "coa_axial_eachtemp_13H_vent_year_res_list", ".rds"))
   } else {
     cli::cli_alert_warning("Please parse the temperature-specific, vent-specific, temporal 13H results and make a new data object.")
   }
